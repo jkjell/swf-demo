@@ -19,7 +19,6 @@ jobs:
       pull_request: ${{ github.event_name == 'pull_request' }}
       step: fmt
       attestations: "git github environment"
-      archivista-server: "https://judge-api.aws-sandbox-staging.testifysec.dev"
       command: go fmt ./...
 
   vet:
@@ -28,7 +27,6 @@ jobs:
       pull_request: ${{ github.event_name == 'pull_request' }}
       step: vet
       attestations: "git github environment"
-      archivista-server: "https://judge-api.aws-sandbox-staging.testifysec.dev"
       command: go vet ./...
 
   # --ignore DL3002    
@@ -39,7 +37,6 @@ jobs:
       step: lint
       pre-command-attestations: "git github environment"
       attestations: "git github environment"
-      archivista-server: "https://judge-api.aws-sandbox-staging.testifysec.dev"
       pre-command: |
         curl -sSfL https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 -o /usr/local/bin/hadolint && \
         chmod +x /usr/local/bin/hadolint
@@ -54,7 +51,6 @@ jobs:
       pull_request: ${{ github.event_name == 'pull_request' }}
       step: unit-test
       attestations: "git github environment"
-      archivista-server: "https://judge-api.aws-sandbox-staging.testifysec.dev"
       command: go test ./... -coverprofile cover.out
       artifact-upload-name: cover.out
       artifact-upload-path: cover.out
@@ -67,7 +63,6 @@ jobs:
       step: sast
       pre-command-attestations: "git github environment"
       attestations: "git github environment"
-      archivista-server: "https://judge-api.aws-sandbox-staging.testifysec.dev"      
       pre-command: python3 -m pip install semgrep==1.45.0
       command: semgrep scan --config auto ./ --sarif -o semgrep.sarif
       artifact-upload-name: semgrep.sarif
@@ -121,7 +116,6 @@ jobs:
         version: 0.6.0
         step: build-image
         attestations: "git github environment oci slsa"
-        archivista-server: "https://judge-api.aws-sandbox-staging.testifysec.dev"        
         command: |
           /bin/sh -c "docker buildx build -t ${{ steps.meta.outputs.tags }} -o type=docker,dest=image.tar --push ."
           
@@ -142,7 +136,6 @@ jobs:
       step: generate-sbom 
       pre-command-attestations: "git github environment"
       attestations: "git github environment sbom"
-      archivista-server: "https://judge-api.aws-sandbox-staging.testifysec.dev"      
       artifact-download: image.tar
       pre-command: |
         curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
@@ -159,7 +152,6 @@ jobs:
       step: secret-scan
       pre-command-attestations: "git github environment"
       attestations: "git github environment"
-      archivista-server: "https://judge-api.aws-sandbox-staging.testifysec.dev"      
       artifact-download: image.tar
       pre-command: |
         curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
@@ -178,10 +170,9 @@ jobs:
       step: verify 
       pre-command-attestations: "git github environment"
       attestations: "git github environment"
-      archivista-server: "https://judge-api.aws-sandbox-staging.testifysec.dev"      
       artifact-download: image.tar
       pre-command: |
         curl -sSfL https://github.com/in-toto/witness/releases/download/v0.6.0/witness_0.6.0_linux_amd64.tar.gz -o witness.tar.gz && \
         tar -xzvf witness.tar.gz -C /usr/local/bin/ && rm ./witness.tar.gz
       command: |
-        witness verify -p policy-signed.json -k swfpublic.pem -f /tmp/image.tar --enable-archivista --archivista-server https://judge-api.aws-sandbox-staging.testifysec.dev -l debug
+        witness verify -p policy-signed.json -k swfpublic.pem -f /tmp/image.tar --enable-archivista -l debug
