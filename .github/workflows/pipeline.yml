@@ -172,7 +172,6 @@ jobs:
       attestations: "git github environment"
       artifact-download: image.tar
       pre-command: |
-        curl -sSfL https://github.com/in-toto/witness/releases/download/v0.6.0/witness_0.6.0_linux_amd64.tar.gz -o witness.tar.gz && \
-        tar -xzvf witness.tar.gz -C /usr/local/bin/ && rm ./witness.tar.gz
+        curl -sSfL https://github.com/jkjell/witness/releases/download/osff-demo/witness -o /usr/local/bin/witness
       command: |
         witness verify -p policy-signed.json -k swfpublic.pem -f /tmp/image.tar --enable-archivista -l debug
