@@ -167,11 +167,12 @@ jobs:
     uses: testifysec/witness-run-action/.github/workflows/witness.yml@reusable-workflow
     with:
       pull_request: ${{ github.event_name == 'pull_request' }}
-      step: verify 
+      step: verify
       pre-command-attestations: "git github environment"
       attestations: "git github environment"
       artifact-download: image.tar
       pre-command: |
-        curl -sSfL https://github.com/jkjell/witness/releases/download/osff-demo/witness -o /usr/local/bin/witness
+        curl -sSfL https://github.com/jkjell/witness/releases/download/osff-demo/witness -o /tmp/witness && \
+        chmod +x /tmp/witness
       command: |
-        witness verify -p policy-signed.json -k swfpublic.pem -f /tmp/image.tar --enable-archivista -l debug
+        /tmp/witness verify -p policy-signed.json -k swfpublic.pem -f /tmp/image.tar --enable-archivista -l debug
