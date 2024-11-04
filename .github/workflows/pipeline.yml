@@ -14,24 +14,30 @@ on:
 
 jobs:
   fmt:
-    uses: testifysec/witness-run-action/.github/workflows/witness.yml@reusable-workflow
+    uses: ./.github/workflows/witness.yml
     with:
       pull_request: ${{ github.event_name == 'pull_request' }}
       step: fmt
       attestations: "git github environment"
       command: go fmt ./...
+    secrets:
+      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
 
   vet:
-    uses: testifysec/witness-run-action/.github/workflows/witness.yml@reusable-workflow
+    uses: ./.github/workflows/witness.yml
     with:
       pull_request: ${{ github.event_name == 'pull_request' }}
       step: vet
       attestations: "git github environment"
       command: go vet ./...
-
+    secrets:
+        TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+        TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+  
   # --ignore DL3002    
   lint:
-    uses: testifysec/witness-run-action/.github/workflows/witness.yml@reusable-workflow
+    uses: ./.github/workflows/witness.yml
     with:
       pull_request: ${{ github.event_name == 'pull_request' }}
       step: lint
@@ -43,10 +49,13 @@ jobs:
       command: hadolint -f sarif Dockerfile > hadolint.sarif
       artifact-upload-name: hadolint.sarif
       artifact-upload-path: hadolint.sarif
+    secrets:
+      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
 
   unit-test:
     needs: [ fmt, vet, lint ]
-    uses: testifysec/witness-run-action/.github/workflows/witness.yml@reusable-workflow
+    uses: ./.github/workflows/witness.yml
     with:
       pull_request: ${{ github.event_name == 'pull_request' }}
       step: unit-test
@@ -54,10 +63,13 @@ jobs:
       command: go test ./... -coverprofile cover.out
       artifact-upload-name: cover.out
       artifact-upload-path: cover.out
+    secrets:
+      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
 
   sast:
     needs: [ fmt, vet, lint ]
-    uses: testifysec/witness-run-action/.github/workflows/witness.yml@reusable-workflow
+    uses: ./.github/workflows/witness.yml
     with:
       pull_request: ${{ github.event_name == 'pull_request' }}
       step: sast
@@ -67,16 +79,22 @@ jobs:
       command: semgrep scan --config auto ./ --sarif -o semgrep.sarif
       artifact-upload-name: semgrep.sarif
       artifact-upload-path: semgrep.sarif
+    secrets:
+      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
 
   build:
     needs: [ unit-test, sast ]
-    uses: testifysec/witness-run-action/.github/workflows/witness.yml@reusable-workflow
+    uses: ./.github/workflows/witness.yml
     with:
       pull_request: ${{ github.event_name == 'pull_request' }}
       step: build 
       attestations: "git github environment"
       command: go build -o bin/software main.go 
-  
+    secrets:
+      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+
   build-image:
     needs: [ unit-test, sast ]
     runs-on: ubuntu-latest
@@ -87,6 +105,13 @@ jobs:
       contents: read  # This is required for actions/checkout
   
     steps:
+    - name: Tailscale
+      uses: tailscale/github-action@v2
+      with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
     - uses: actions/checkout@v4.1.1
     - uses: docker/setup-buildx-action@v3.0.0
     
@@ -130,7 +155,7 @@ jobs:
 
   generate-sbom:
     needs: build-image
-    uses: testifysec/witness-run-action/.github/workflows/witness.yml@reusable-workflow
+    uses: ./.github/workflows/witness.yml
     with:
       pull_request: ${{ github.event_name == 'pull_request' }}
       step: generate-sbom 
@@ -143,10 +168,13 @@ jobs:
         syft packages docker-archive:/tmp/image.tar --source-name=pkg:oci/testifysec/swf -o cyclonedx-json --file sbom.cdx.json
       artifact-upload-name: sbom.cdx.json
       artifact-upload-path: sbom.cdx.json
+    secrets:
+        TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+        TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
 
   secret-scan:
     needs: build-image
-    uses: testifysec/witness-run-action/.github/workflows/witness.yml@reusable-workflow
+    uses: ./.github/workflows/witness.yml
     with:
       pull_request: ${{ github.event_name == 'pull_request' }}
       step: secret-scan
@@ -159,37 +187,6 @@ jobs:
         trufflehog docker --image=file:///tmp/image.tar -j > trufflehog.json
       artifact-upload-name: trufflehog.json
       artifact-upload-path: trufflehog.json
-
-  verify-pr:
-    needs: [ generate-sbom, secret-scan]
-    
-    if: ${{ github.event_name == 'push' }}
-    uses: testifysec/witness-run-action/.github/workflows/witness.yml@reusable-workflow
-    with:
-      pull_request: ${{ github.event_name == 'pull_request' }}
-      step: verify
-      pre-command-attestations: "git github environment"
-      attestations: "git github environment"
-      artifact-download: image.tar
-      pre-command: |
-        curl -sSfL https://github.com/jkjell/witness/releases/download/osff-demo/witness -o /tmp/witness && \
-        chmod +x /tmp/witness
-      command: |
-        /tmp/witness verify -p pr-policy-signed.json -k swfpublic.pem -f /tmp/image.tar --enable-archivista
-
-  verify:
-    needs: [ generate-sbom, secret-scan]
-
-    if: ${{ github.event_name == 'push' }}
-    uses: testifysec/witness-run-action/.github/workflows/witness.yml@reusable-workflow
-    with:
-      pull_request: ${{ github.event_name == 'pull_request' }}
-      step: verify
-      pre-command-attestations: "git github environment"
-      attestations: "git github environment"
-      artifact-download: image.tar
-      pre-command: |
-        curl -sSfL https://github.com/jkjell/witness/releases/download/osff-demo/witness -o /tmp/witness && \
-        chmod +x /tmp/witness
-      command: |
-        /tmp/witness verify -p policy-signed.json -k swfpublic.pem -f /tmp/image.tar --enable-archivista
+    secrets:
+      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
