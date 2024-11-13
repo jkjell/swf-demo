@@ -21,8 +21,7 @@ jobs:
       attestations: "git github environment"
       command: go fmt ./...
     secrets:
-      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+      ED_25519_PRIVATE_KEY: ${{ secrets.ED_25519_PRIVATE_KEY }}
 
   vet:
     uses: ./.github/workflows/witness.yml
@@ -32,8 +31,7 @@ jobs:
       attestations: "git github environment"
       command: go vet ./...
     secrets:
-        TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-        TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+        ED_25519_PRIVATE_KEY: ${{ secrets.ED_25519_PRIVATE_KEY }}
   
   # --ignore DL3002    
   lint:
@@ -50,8 +48,7 @@ jobs:
       artifact-upload-name: hadolint.sarif
       artifact-upload-path: hadolint.sarif
     secrets:
-      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+      ED_25519_PRIVATE_KEY: ${{ secrets.ED_25519_PRIVATE_KEY }}
 
   unit-test:
     needs: [ fmt, vet, lint ]
@@ -64,8 +61,7 @@ jobs:
       artifact-upload-name: cover.out
       artifact-upload-path: cover.out
     secrets:
-      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+      ED_25519_PRIVATE_KEY: ${{ secrets.ED_25519_PRIVATE_KEY }}
 
   sast:
     needs: [ fmt, vet, lint ]
@@ -80,8 +76,7 @@ jobs:
       artifact-upload-name: semgrep.sarif
       artifact-upload-path: semgrep.sarif
     secrets:
-      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+      ED_25519_PRIVATE_KEY: ${{ secrets.ED_25519_PRIVATE_KEY }}
 
   build:
     needs: [ unit-test, sast ]
@@ -92,8 +87,7 @@ jobs:
       attestations: "git github environment"
       command: go build -o bin/software main.go 
     secrets:
-      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+      ED_25519_PRIVATE_KEY: ${{ secrets.ED_25519_PRIVATE_KEY }}
 
   build-image:
     needs: [ unit-test, sast ]
@@ -105,13 +99,6 @@ jobs:
       contents: read  # This is required for actions/checkout
   
     steps:
-    - name: Tailscale
-      uses: tailscale/github-action@v2
-      with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
-
     - uses: actions/checkout@v4.1.1
     - uses: docker/setup-buildx-action@v3.0.0
     
@@ -135,13 +122,20 @@ jobs:
         install: true
         use: true
 
+    - name: Save Key
+      env:
+        ED_25519_PRIVATE_KEY: ${{ secrets.ED_25519_PRIVATE_KEY }}
+      run: echo $ED_25519_PRIVATE_KEY > /tmp/private.pem
+
     - name: Build Image
-      uses: testifysec/witness-run-action@reusable-workflow # v0.2.0
+      uses: testifysec/witness-run-action@5f0d4d4b85d205ade1147258148e6d9751bbcb91 # v0.2.0
       with:
         version: 0.6.0
         step: build-image
         archivista-server: "http://john-minikube-archivista:8082"
         attestations: "git github environment oci slsa"
+        enable-sigstore: false
+        key: /tmp/private.pem
         command: |
           /bin/sh -c "docker buildx build -t ${{ steps.meta.outputs.tags }} -o type=docker,dest=image.tar --push ."
           
@@ -170,8 +164,7 @@ jobs:
       artifact-upload-name: sbom.cdx.json
       artifact-upload-path: sbom.cdx.json
     secrets:
-        TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-        TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+        ED_25519_PRIVATE_KEY: ${{ secrets.ED_25519_PRIVATE_KEY }}
 
   secret-scan:
     needs: build-image
@@ -189,5 +182,4 @@ jobs:
       artifact-upload-name: trufflehog.json
       artifact-upload-path: trufflehog.json
     secrets:
-      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+      ED_25519_PRIVATE_KEY: ${{ secrets.ED_25519_PRIVATE_KEY }}

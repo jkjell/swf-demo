@@ -44,13 +44,11 @@ on:
                 required: true
                 type: string
             archivista-server:
-                default: "http://john-minikube-archivista:8082"
+                default: "https://archivista.testifysec.io"
                 required: false
                 type: string
         secrets:
-            TS_OAUTH_CLIENT_ID:
-                required: true
-            TS_OAUTH_SECRET:
+            ED_25519_PRIVATE_KEY:
                 required: true
             
 jobs:
@@ -62,37 +60,39 @@ jobs:
             with:
               go-version: 1.21.x
         
-          - name: Tailscale
-            uses: tailscale/github-action@v2
-            with:
-                oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-                oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-                tags: tag:ci
-
           - if: ${{ inputs.artifact-download != '' }}
             uses: actions/download-artifact@6b208ae046db98c579e8a3aa621ab581ff575935 # v4.1.1
             with:
               name: ${{ inputs.artifact-download }}
               path: /tmp
 
+          - name: Save Key
+            env:
+              ED_25519_PRIVATE_KEY: ${{ secrets.ED_25519_PRIVATE_KEY }}
+            run: echo $ED_25519_PRIVATE_KEY > /tmp/private.pem
+
           - if: ${{ inputs.pre-command != '' && inputs.pull_request == false }}
-            uses: testifysec/witness-run-action@79320a907f611f2fb40ced8e13c66af988b2d9db # v0.2.2
+            uses: testifysec/witness-run-action@5f0d4d4b85d205ade1147258148e6d9751bbcb91 # v0.2.2
             with:
               version: 0.6.0
               archivista-server: ${{ inputs.archivista-server }}
               step: pre-${{ inputs.step }}
               attestations: ${{ inputs.pre-command-attestations }}
+              enable-sigstore: false
+              key: /tmp/private.pem
               command: /bin/sh -c "${{ inputs.pre-command }}"
           - if: ${{ inputs.pre-command != '' && inputs.pull_request == true }}
             run: ${{ inputs.pre-command }}
 
           - if: ${{ inputs.pull_request == false }}
-            uses: testifysec/witness-run-action@79320a907f611f2fb40ced8e13c66af988b2d9db # v0.2.2
+            uses: testifysec/witness-run-action@5f0d4d4b85d205ade1147258148e6d9751bbcb91 # v0.2.2
             with:
               version: 0.6.0
               archivista-server: ${{ inputs.archivista-server }}
               step: ${{ inputs.step }}
               attestations: ${{ inputs.attestations }}
+              enable-sigstore: false
+              key: /tmp/private.pem
               command: /bin/sh -c "${{ inputs.command }}"
           - if: ${{ inputs.pull_request == true }}
             run: ${{ inputs.command }}
