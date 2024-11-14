@@ -131,6 +131,7 @@ jobs:
       uses: testifysec/witness-run-action@5f0d4d4b85d205ade1147258148e6d9751bbcb91 # v0.2.0
       with:
         version: 0.6.0
+        witness-install-dir: /usr/local/bin
         step: build-image
         attestations: "git github environment oci slsa"
         enable-sigstore: false
