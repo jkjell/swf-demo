@@ -122,9 +122,6 @@ jobs:
         install: true
         use: true
 
-    - name: Fix Dockerfile
-      run: sed -i 's/# USER root/USER root/g' Dockerfile
-
     - name: Save Key
       env:
         ED_25519_PRIVATE_KEY: ${{ secrets.ED_25519_PRIVATE_KEY }}
