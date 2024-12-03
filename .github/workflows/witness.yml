@@ -44,14 +44,9 @@ on:
                 required: true
                 type: string
             archivista-server:
-                default: "http://john-minikube-archivista:8082"
+                default: "https://archivista.aws-sandbox-staging.testifysec.dev/"
                 required: false
                 type: string
-        secrets:
-            TS_OAUTH_CLIENT_ID:
-                required: true
-            TS_OAUTH_SECRET:
-                required: true
             
 jobs:
     witness:
@@ -62,13 +57,6 @@ jobs:
             with:
               go-version: 1.21.x
         
-          - name: Tailscale
-            uses: tailscale/github-action@v2
-            with:
-                oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-                oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-                tags: tag:ci
-
           - if: ${{ inputs.artifact-download != '' }}
             uses: actions/download-artifact@6b208ae046db98c579e8a3aa621ab581ff575935 # v4.1.1
             with:
